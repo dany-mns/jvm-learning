@@ -1,3 +1,5 @@
+import json
+import sys
 from enum import Enum
 
 
@@ -57,15 +59,15 @@ if __name__ == '__main__':
     constant_pool = []
     clazz = {}
     with open("./Main.class", "rb") as f:
-        clazz["magic_number"] = f.read(4)
-        clazz["minor_version"] = f.read(2)
-        clazz["major_version"] = f.read(2)
+        clazz["magic_number"] = read_4u(f)
+        clazz["minor_version"] = read_2u(f)
+        clazz["major_version"] = read_2u(f)
         clazz["constant_pool_count"] = read_2u(f)
         print(f"Constant pool count {clazz["constant_pool_count"]}")
         for i in range(clazz["constant_pool_count"] - 1):
             cp_info = {}
             tag = read_1u(f)
-            cp_info['tag'] = ConstantType.get_by_value(tag)
+            cp_info['tag'] = ConstantType.get_by_value(tag).name
             if tag == ConstantType.CONSTANT_Methodref.value or tag == ConstantType.CONSTANT_Fieldref.value or tag == ConstantType.CONSTANT_InterfaceMethodref.value:
                 cp_info['class_index'] = read_2u(f)
                 cp_info['name_and_type_index'] = read_2u(f)
@@ -76,7 +78,7 @@ if __name__ == '__main__':
                 cp_info['descriptor_index'] = read_2u(f)
             elif tag == ConstantType.CONSTANT_Utf8.value:
                 cp_info['length'] = read_2u(f)
-                cp_info["bytes"] = f.read(cp_info["length"])
+                cp_info["bytes"] = f.read(cp_info["length"]).decode('utf-8')
             elif tag == ConstantType.CONSTANT_String.value:
                 cp_info["string_index"] = read_2u(f)
             else:
@@ -84,7 +86,7 @@ if __name__ == '__main__':
             print(f"[{i + 1}]cp_info = {cp_info}")
             constant_pool.append(cp_info)
         clazz["constant_pool"] = constant_pool
-        clazz["access_flags"] = read_2u(f)
-        print(clazz["access_flags"])
-        print(get_access_flags(clazz["access_flags"]))
+        clazz["access_flags"] = get_access_flags(read_2u(f))
+        clazz["this_class"] = read_2u(f)
+        print(json.dumps(clazz, indent=4, sort_keys=True))
         # print(f"magic number = {magic_number}")
