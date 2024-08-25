@@ -39,13 +39,14 @@ def read_4u(f): return int.from_bytes(read_xu(f, 4))
 
 if __name__ == '__main__':
     constant_pool = []
+    clazz = {}
     with open("./Main.class", "rb") as f:
-        magic_number = f.read(4)
-        minor_version = f.read(2)
-        major_version = f.read(2)
-        constant_pool_count = read_2u(f)
-        print(f"Constant pool count {constant_pool_count}")
-        for i in range(constant_pool_count - 1):
+        clazz["magic_number"] = f.read(4)
+        clazz["minor_version"] = f.read(2)
+        clazz["major_version"] = f.read(2)
+        clazz["constant_pool_count"] = read_2u(f)
+        print(f"Constant pool count {clazz["constant_pool_count"]}")
+        for i in range(clazz["constant_pool_count"] - 1):
             cp_info = {}
             tag = read_1u(f)
             cp_info['tag'] = ConstantType.get_by_value(tag)
@@ -66,5 +67,6 @@ if __name__ == '__main__':
                 assert False, f"Unexpected tag {tag}"
             print(f"[{i + 1}]cp_info = {cp_info}")
             constant_pool.append(cp_info)
-
+        clazz["constant_pool"] = constant_pool
+        clazz["access_flags"] = read_2u(f)
         # print(f"magic number = {magic_number}")
