@@ -17,6 +17,25 @@ class ConstantType(Enum):
     CONSTANT_MethodType = 16
     CONSTANT_InvokeDynamic = 18
 
+    @staticmethod
+    def get_by_value(value):
+        for member in ConstantType:
+            if member.value == value:
+                return member
+        raise Exception(f"Constant type {value} not found!")
+
+
+def read_xu(f, x): return f.read(x)
+
+
+def read_1u(f): return int.from_bytes(read_xu(f, 1))
+
+
+def read_2u(f): return int.from_bytes(read_xu(f, 2))
+
+
+def read_4u(f): return int.from_bytes(read_xu(f, 4))
+
 
 if __name__ == '__main__':
     constant_pool = []
@@ -24,18 +43,28 @@ if __name__ == '__main__':
         magic_number = f.read(4)
         minor_version = f.read(2)
         major_version = f.read(2)
-        constant_pool_count = int.from_bytes(f.read(2))
+        constant_pool_count = read_2u(f)
         print(f"Constant pool count {constant_pool_count}")
         for i in range(constant_pool_count - 1):
             cp_info = {}
-            tag = int.from_bytes(f.read(1))
-            cp_info['tag'] = tag
-            if tag == ConstantType.CONSTANT_Methodref.value:
-                cp_info['class_index'] = int.from_bytes(f.read(2))
-                cp_info['name_and_type_index'] = int.from_bytes(f.read(2))
-                print(f"cp_info = {cp_info}")
+            tag = read_1u(f)
+            cp_info['tag'] = ConstantType.get_by_value(tag)
+            if tag == ConstantType.CONSTANT_Methodref.value or tag == ConstantType.CONSTANT_Fieldref.value or tag == ConstantType.CONSTANT_InterfaceMethodref.value:
+                cp_info['class_index'] = read_2u(f)
+                cp_info['name_and_type_index'] = read_2u(f)
+            elif tag == ConstantType.CONSTANT_Class.value:
+                cp_info['name_index'] = read_2u(f)
+            elif tag == ConstantType.CONSTANT_NameAndType.value:
+                cp_info['name_index'] = read_2u(f)
+                cp_info['descriptor_index'] = read_2u(f)
+            elif tag == ConstantType.CONSTANT_Utf8.value:
+                cp_info['length'] = read_2u(f)
+                cp_info["bytes"] = f.read(cp_info["length"])
+            elif tag == ConstantType.CONSTANT_String.value:
+                cp_info["string_index"] = read_2u(f)
             else:
                 assert False, f"Unexpected tag {tag}"
+            print(f"[{i + 1}]cp_info = {cp_info}")
             constant_pool.append(cp_info)
 
         # print(f"magic number = {magic_number}")
