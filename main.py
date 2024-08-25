@@ -25,6 +25,18 @@ class ConstantType(Enum):
         raise Exception(f"Constant type {value} not found!")
 
 
+access_flags = [
+    ("ACC_PUBLIC", 0x0001),
+    ("ACC_FINAL", 0x0010),
+    ("ACC_SUPER", 0x0020),
+    ("ACC_INTERFACE", 0x0200),
+    ("ACC_ABSTRACT", 0x0400),
+    ("ACC_SYNTHETIC", 0x1000),
+    ("ACC_ANNOTATION", 0x2000),
+    ("ACC_ENUM", 0x4000)
+]
+
+
 def read_xu(f, x): return f.read(x)
 
 
@@ -35,6 +47,10 @@ def read_2u(f): return int.from_bytes(read_xu(f, 2))
 
 
 def read_4u(f): return int.from_bytes(read_xu(f, 4))
+
+
+def get_access_flags(flags) -> [str]:
+    return [name for (name, value) in access_flags if (flags & value) != 0]
 
 
 if __name__ == '__main__':
@@ -69,4 +85,6 @@ if __name__ == '__main__':
             constant_pool.append(cp_info)
         clazz["constant_pool"] = constant_pool
         clazz["access_flags"] = read_2u(f)
+        print(clazz["access_flags"])
+        print(get_access_flags(clazz["access_flags"]))
         # print(f"magic number = {magic_number}")
