@@ -1,5 +1,7 @@
-import json
+import pprint
 from enum import Enum
+
+pprint = pprint.PrettyPrinter().pprint
 
 
 class ConstantType(Enum):
@@ -69,15 +71,34 @@ def get_access_flags(flags, access_flags) -> [str]:
     return [name for (name, value) in access_flags if (flags & value) != 0]
 
 
-if __name__ == '__main__':
+def parse_attributes(f, count) -> []:
+    method_attributes = []
+
+    for j in range(count):
+        method_attribute = {}
+        """
+            attribute_info {
+                u2 attribute_name_index;
+                u4 attribute_length;
+                u1 info[attribute_length];
+            }
+        """
+        method_attribute["attribute_name_index"] = read_2u(f)
+        method_attribute["attribute_length"] = read_4u(f)
+        method_attribute["info"] = f.read(method_attribute["attribute_length"])
+
+        method_attributes.append(method_attribute)
+
+    return method_attributes
+
+def parse_class_file(filename: str) -> {}:
     constant_pool = []
     clazz = {}
-    with open("./Main.class", "rb") as f:
+    with open(filename, "rb") as f:
         clazz["magic_number"] = read_4u(f)
         clazz["minor_version"] = read_2u(f)
         clazz["major_version"] = read_2u(f)
         clazz["constant_pool_count"] = read_2u(f)
-        print(f"Constant pool count {clazz["constant_pool_count"]}")
         for i in range(clazz["constant_pool_count"] - 1):
             cp_info = {}
             tag = read_1u(f)
@@ -92,7 +113,7 @@ if __name__ == '__main__':
                 cp_info['descriptor_index'] = read_2u(f)
             elif tag == ConstantType.CONSTANT_Utf8.value:
                 cp_info['length'] = read_2u(f)
-                cp_info["bytes"] = f.read(cp_info["length"]).decode('utf-8') # TODO Remove decode
+                cp_info["bytes"] = f.read(cp_info["length"])
             elif tag == ConstantType.CONSTANT_String.value:
                 cp_info["string_index"] = read_2u(f)
             else:
@@ -123,37 +144,28 @@ if __name__ == '__main__':
                 attribute_info attributes[attributes_count];
             }
             """
-            method_info = {"access_flags ": get_access_flags(read_2u(f), method_access_flags),
-                           "name_index ": read_2u(f), "descriptor_index ": read_2u(f), "attribute_count": read_2u(f)}
-
-            method_attributes = []
-
-            for j in range(method_info["attribute_count"]):
-                """
-                    attribute_info {
-                        u2 attribute_name_index;
-                        u4 attribute_length;
-                        u1 info[attribute_length];
-                    }
-                """
-                method_attribute = {"attribute_name_index": read_2u(f), "attribute_length": read_4u(f)}
-                method_attribute["info"] = f.read(method_attribute["attribute_length"]).decode("UTF-u") # TODO
-
-                method_attributes.append(method_attribute)
-
-            method_info["attribute_info"] = method_attributes
+            method_info = {}
+            method_info["access_flags"] = get_access_flags(read_2u(f), method_access_flags)
+            method_info["name_index"] = read_2u(f)
+            method_info["descriptor_index"] = read_2u(f)
+            method_info["attribute_count"] = read_2u(f)
+            method_info["attribute_info"] = parse_attributes(f, method_info["attribute_count"])
 
             methods.append(method_info)
         clazz["method_info"] = methods
 
         clazz["attributes_count"] = read_2u(f)
-        attributes = []
-        for i in range(clazz["attributes_count"]):
-            attributes.append({})
-            assert False, "Atrribute in class parsing is NOT IMPLEMENTED"
-        clazz["attribute_info"] = attributes
+        clazz["attribute_info"] = parse_attributes(f, clazz["attributes_count"])
 
-        print(json.dumps(clazz, indent=4, sort_keys=True))
-        # print(f"magic number = {magic_number}")
+    return clazz
 
-    print(clazz["constant_pool"][clazz["constant_pool"][clazz["this_class"] - 1]["name_index"] - 1])
+def find_method_by_name(clazz, method_name: bytes):
+    for method in clazz["method_info"]:
+        if clazz["constant_pool"][method["name_index"] - 1]["bytes"] == method_name:
+            return method
+    return None
+
+if __name__ == '__main__':
+    clazz = parse_class_file("./Main.class")
+    print(find_method_by_name(clazz, b'main'))
+    # pprint(clazz["constant_pool"][clazz["constant_pool"][clazz["this_class"] - 1]["name_index"] - 1])
