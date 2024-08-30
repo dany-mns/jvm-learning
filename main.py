@@ -91,6 +91,7 @@ def parse_attributes(f, count) -> []:
 
     return method_attributes
 
+
 def parse_class_file(filename: str) -> {}:
     constant_pool = []
     clazz = {}
@@ -159,13 +160,13 @@ def parse_class_file(filename: str) -> {}:
 
     return clazz
 
-def find_method_by_name(clazz, method_name: bytes):
-    for method in clazz["method_info"]:
-        if clazz["constant_pool"][method["name_index"] - 1]["bytes"] == method_name:
-            return method
-    return None
+
+def find_methods_by_name(clazz, method_name: bytes):
+    return [method for method in clazz["method_info"] if
+            clazz["constant_pool"][method["name_index"] - 1]["bytes"] == method_name]
+
 
 if __name__ == '__main__':
     clazz = parse_class_file("./Main.class")
-    print(find_method_by_name(clazz, b'main'))
+    pprint(find_methods_by_name(clazz, b'foo'))
     # pprint(clazz["constant_pool"][clazz["constant_pool"][clazz["this_class"] - 1]["name_index"] - 1])
