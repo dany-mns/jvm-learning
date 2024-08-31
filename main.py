@@ -1,3 +1,4 @@
+import io
 import pprint
 from enum import Enum
 
@@ -166,7 +167,53 @@ def find_methods_by_name(clazz, method_name: bytes):
             clazz["constant_pool"][method["name_index"] - 1]["bytes"] == method_name]
 
 
+def find_attributes(clazz, attributes, attribute_name: bytes):
+    return [attr for attr in attributes if
+            clazz["constant_pool"][attr["attribute_name_index"] - 1]["bytes"] == attribute_name]
+
+
+def parse_code(info: bytes):
+    code_attribute = {}
+    with io.BytesIO(info) as f:
+        """
+            u2 max_stack;
+            u2 max_locals;
+            u4 code_length;
+            u1 code[code_length];
+            u2 exception_table_length;
+            {   u2 start_pc;
+                u2 end_pc;
+                u2 handler_pc;
+                u2 catch_type;
+            } exception_table[exception_table_length];
+            u2 attributes_count;
+            attribute_info attributes[attributes_count];
+        """
+        max_stack = read_2u(f)
+        max_locals = read_2u(f)
+        code_length = read_4u(f)
+        byte_code = f.read(code_length)
+        exception_table_length = read_2u(f)
+        for i in range(exception_table_length):
+            assert False, "Reading exception not implemented"
+        attributes_count = read_2u(f)
+        attribute_info = parse_attributes(f, attributes_count)
+
+        code_attribute["max_stack"] = max_stack
+        code_attribute["max_locals"] = max_locals
+        code_attribute["code_length"] = code_length
+        code_attribute["byte_code"] = byte_code
+        code_attribute["exception_table_length"] = exception_table_length
+        code_attribute["attributes_count"] = attributes_count
+        code_attribute["attribute_info"] = attribute_info
+
+    return code_attribute
+
+
 if __name__ == '__main__':
     clazz = parse_class_file("./Main.class")
-    pprint(find_methods_by_name(clazz, b'foo'))
+    [main] = find_methods_by_name(clazz, b'main')
+    [code] = find_attributes(clazz, main["attribute_info"], b'Code')
+    code_attribute = parse_code(code["info"])
+    pprint(code_attribute)
     # pprint(clazz["constant_pool"][clazz["constant_pool"][clazz["this_class"] - 1]["name_index"] - 1])
