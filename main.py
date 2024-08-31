@@ -4,6 +4,8 @@ from enum import Enum
 
 pprint = pprint.PrettyPrinter().pprint
 
+class Opcode(Enum):
+    GET_STATIC = 0xB2
 
 class ConstantType(Enum):
     CONSTANT_Class = 7
@@ -171,6 +173,13 @@ def find_attributes(clazz, attributes, attribute_name: bytes):
     return [attr for attr in attributes if
             clazz["constant_pool"][attr["attribute_name_index"] - 1]["bytes"] == attribute_name]
 
+def execute_code(clazz, code):
+    with io.BytesIO(code) as f:
+        opcode = read_1u(f)
+        if opcode == Opcode.GET_STATIC:
+            index = read_2u(f)
+        else:
+            assert False, f"Unknown opcode {opcode}"
 
 def parse_code(info: bytes):
     code_attribute = {}
