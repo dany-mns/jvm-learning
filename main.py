@@ -173,13 +173,29 @@ def find_attributes(clazz, attributes, attribute_name: bytes):
     return [attr for attr in attributes if
             clazz["constant_pool"][attr["attribute_name_index"] - 1]["bytes"] == attribute_name]
 
+
+def get_class_name(clazz, class_index):
+    return clazz["constant_pool"][clazz["constant_pool"][class_index - 1]["name_index"] - 1]["bytes"]
+
+def get_member_name(clazz, field_index):
+    return clazz["constant_pool"][clazz["constant_pool"][field_index - 1]["name_index"] - 1]["bytes"]
+
 def execute_code(clazz, code):
+    stack = []
     with io.BytesIO(code) as f:
         opcode = read_1u(f)
-        if opcode == Opcode.GET_STATIC:
+        if opcode == Opcode.GET_STATIC.value:
             index = read_2u(f)
+            fieldref = clazz["constant_pool"][index -1]
+            class_name = get_class_name(clazz, fieldref["class_index"])
+            member_name = get_class_name(clazz, fieldref["name_and_type_index"])
+            print(f"GET_STATIC {index}. Class name: '{class_name}' with member '{member_name}'")
+            if class_name != b'' and member_name != b'out':
+                raise Exception(f"Unexpected class name '{class_name}' or/and member '{member_name}'")
+
+            stack.append({"type": "FakePrintStream"})
         else:
-            assert False, f"Unknown opcode {opcode}"
+            assert False, f"Unknown opcode {hex(opcode)}"
 
 def parse_code(info: bytes):
     code_attribute = {}
@@ -224,5 +240,6 @@ if __name__ == '__main__':
     [main] = find_methods_by_name(clazz, b'main')
     [code] = find_attributes(clazz, main["attribute_info"], b'Code')
     code_attribute = parse_code(code["info"])
-    pprint(code_attribute)
+    byte_code = code_attribute["byte_code"]
+    execute_code(clazz, byte_code)
     # pprint(clazz["constant_pool"][clazz["constant_pool"][clazz["this_class"] - 1]["name_index"] - 1])
