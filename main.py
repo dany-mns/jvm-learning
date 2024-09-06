@@ -6,6 +6,9 @@ pprint = pprint.PrettyPrinter().pprint
 
 class Opcode(Enum):
     GET_STATIC = 0xB2
+    LDC = 0x12
+    INVOKE_VIRTUAL = 0xb6
+    RETURN = 0xb1
 
 class ConstantType(Enum):
     CONSTANT_Class = 7
@@ -183,19 +186,51 @@ def get_member_name(clazz, field_index):
 def execute_code(clazz, code):
     stack = []
     with io.BytesIO(code) as f:
-        opcode = read_1u(f)
-        if opcode == Opcode.GET_STATIC.value:
-            index = read_2u(f)
-            fieldref = clazz["constant_pool"][index -1]
-            class_name = get_class_name(clazz, fieldref["class_index"])
-            member_name = get_class_name(clazz, fieldref["name_and_type_index"])
-            print(f"GET_STATIC {index}. Class name: '{class_name}' with member '{member_name}'")
-            if class_name != b'' and member_name != b'out':
-                raise Exception(f"Unexpected class name '{class_name}' or/and member '{member_name}'")
+        while f.tell() < len(code):
+            opcode = read_1u(f)
+            if opcode == Opcode.GET_STATIC.value:
+                index = read_2u(f)
+                fieldref = clazz["constant_pool"][index -1]
+                class_name = get_class_name(clazz, fieldref["class_index"])
+                member_name = get_class_name(clazz, fieldref["name_and_type_index"])
+                print(f"GET_STATIC {index}. Class name: '{class_name}' with member '{member_name}'")
+                if class_name != b'' and member_name != b'out':
+                    raise Exception(f"Unexpected class name '{class_name}' or/and member '{member_name}'")
 
-            stack.append({"type": "FakePrintStream"})
-        else:
-            assert False, f"Unknown opcode {hex(opcode)}"
+                stack.append({"type": "FakePrintStream"})
+            elif opcode == Opcode.LDC.value:
+                index = read_1u(f)
+                constant_string = clazz["constant_pool"][clazz["constant_pool"][index - 1]["string_index"] - 1]["bytes"]
+                stack.append({"type": "constant", "value": constant_string})
+                print(f"LDC index: '{index}' -> constant value: '{constant_string}'")
+
+            elif opcode == Opcode.INVOKE_VIRTUAL.value:
+                index = read_2u(f)
+                method_ref = clazz["constant_pool"][index - 1]
+                class_name = get_class_name(clazz, method_ref["class_index"])
+                member_name = get_class_name(clazz, method_ref["name_and_type_index"])
+                if class_name != b'java/io/PrintStream' and member_name != b'println':
+                    assert False, f"{class_name} with member {member_name} is not IMPLEMENTED"
+
+                if len(stack) < 2:
+                    assert False, f"We expect 2 arguments for {class_name}/{member_name}"
+
+                print_stream_type = stack[-2]
+                if print_stream_type["type"] != "FakePrintStream":
+                    assert False, "Other types are not implemented"
+
+                arg = stack[-1]
+
+                if arg["type"] != "constant":
+                    assert False, "Unexpected type for arg"
+
+                print(arg["value"])
+
+                print(f"Invoke method based on {method_ref} with class {class_name} and member {member_name}")
+            elif opcode == Opcode.RETURN.value:
+                print("RETURN")
+            else:
+                assert False, f"Unknown opcode {hex(opcode)}"
 
 def parse_code(info: bytes):
     code_attribute = {}
